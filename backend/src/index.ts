@@ -10,6 +10,7 @@ app.use('/api',apiRouter)
 
 
 console.log("first")
+console.log("d")
 
 app.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`);
