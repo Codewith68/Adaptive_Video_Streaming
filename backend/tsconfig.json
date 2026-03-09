@@ -30,6 +30,7 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
+    // "allowImportingTsExtensions": true,
     // Style Options
     // "noImplicitReturns": true,
     "noImplicitAny": true,
