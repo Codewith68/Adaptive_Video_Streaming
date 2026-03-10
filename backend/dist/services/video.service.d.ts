@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**
  *
  * @param inputPath  the path to the input video file

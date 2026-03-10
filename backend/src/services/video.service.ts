@@ -1,5 +1,33 @@
 import fs from 'fs';
+import 'dotenv/config';
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+
+const sanitizePath = (value?:string):string | undefined => {
+    if (!value) return undefined
+    const cleaned = value.trim().replace(/^["']|["']$/g, '')
+    return cleaned.length ? cleaned : undefined
+}
+
+const resolveFfmpegPath = ():string | undefined => {
+    const envPath = sanitizePath(process.env.FFMPEG_PATH)
+    // Must be an actual FILE, not a directory
+    if (envPath && fs.existsSync(envPath) && fs.statSync(envPath).isFile()) {
+        console.log("Using FFMPEG_PATH from .env:", envPath);
+        return envPath;
+    }
+    // Fallback to ffmpeg-static binary
+    const staticPath = (typeof ffmpegStatic === 'string' ? ffmpegStatic : (ffmpegStatic as any)?.default) as string | undefined;
+    if (staticPath && fs.existsSync(staticPath)) {
+        console.log("Using ffmpeg-static:", staticPath);
+        return staticPath;
+    }
+    console.log("WARNING: No valid ffmpeg path found! envPath:", envPath, "ffmpegStatic:", staticPath);
+    return undefined;
+}
+
+const configuredFfmpegPath = resolveFfmpegPath()
+if (configuredFfmpegPath) ffmpeg.setFfmpegPath(configuredFfmpegPath)
 interface resolution{
     width:number,
     height:number,
@@ -30,50 +58,82 @@ export const processVideoForHls = (
     inputPath:string,
     outputPath:string,
     callback:(error:Error | null,masterPlaylist ?:string)=>void):void=>{
-        fs.mkdirSync(outputPath,{recursive:true}) // create the output directory if it doesn't exist
+        let callbackCalled=false;
+
+        const finish=(error:Error | null, playlist?:string)=>{
+            if (callbackCalled) return
+            callbackCalled=true
+            callback(error, playlist)
+        }
+
+        if (configuredFfmpegPath && !fs.existsSync(configuredFfmpegPath)) {
+            finish(new Error(`FFMPEG_PATH is invalid: ${configuredFfmpegPath}`))
+            return
+        }
+
+        ffmpeg.getAvailableFormats((formatsError)=>{
+            if (formatsError) {
+                const attempted = configuredFfmpegPath ?? 'not found from env/common paths/PATH'
+                finish(new Error(`FFmpeg is not available. Attempted path: ${attempted}. Add FFMPEG_PATH to backend/.env or add ffmpeg.exe to Windows PATH.`))
+                return
+            }
+
+            fs.mkdirSync(outputPath,{recursive:true}) // create the output directory if it doesn't exist
 
 
-        const masterPlaylist=`${outputPath}/master.m3u8` //path to the master playlist
+            const masterPlaylist=`${outputPath}/master.m3u8` //path to the master playlist
 
-        const masterContent:string[]=[]
-        let countProcessing=0;
-        resolutions.forEach((resolution)=>{
-            const variantOutput=`${outputPath}/${resolution.height}p`;
-            const variantPlaylist=`${variantOutput}/playlist.m3u8`; //path to the variant playlist 
-            fs.mkdirSync(variantOutput,{recursive:true}) // create the variant directory if it doesn't exist
+            const masterContent:string[]=[]
 
-            ffmpeg(inputPath)
-            .outputOptions([
-                `-vf scale=w=${resolution.width}:h=${resolution.height}`,// resize the video to the desired resolution
-                 '-b:v '+resolution.bitRate+'k', // bitrate for the video
-                 '-maxrate '+resolution.bitRate+'k',
-                 '-bufsize '+(resolution.bitRate*2)+'k',
-                 '-hls_time 10',
-                 'codec:a acc', // audio codec 
-                 '-hls_playlist_type vod', // vod playlist type
-                 `-hls_segment_filename ${variantOutput}/segment%03d.ts`,
-            ])
-            .output(variantPlaylist) // output to the variant playlist
-            .on('end',()=>{
-                // when the processing end 
-                masterContent.push(
-                    `#EXT-X-STREAM-INF:BANDWIDTH=${resolution.bitRate*1000},RESOLUTION=${resolution.width}x${resolution.height}\n`+
-                    `${resolution.height}p/playlist.m3u8`
-                )
-                countProcessing+=1
-                if(countProcessing===resolutions.length){
+            const processSequentially = async () => {
+                for (const resolution of resolutions) {
+                    if (callbackCalled) return;
+                    
+                    const variantOutput=`${outputPath}/${resolution.height}p`;
+                    const variantPlaylist=`${variantOutput}/playlist.m3u8`; //path to the variant playlist 
+                    fs.mkdirSync(variantOutput,{recursive:true}) // create the variant directory if it doesn't exist
+
+                    await new Promise<void>((resolve, reject) => {
+                        ffmpeg(inputPath)
+                        .outputOptions([
+                            `-vf scale=w=${resolution.width}:h=${resolution.height}`,// resize the video to the desired resolution
+                             '-b:v '+resolution.bitRate+'k', // bitrate for the video
+                             '-maxrate '+resolution.bitRate+'k',
+                             '-bufsize '+(resolution.bitRate*2)+'k',
+                             '-hls_time 10',
+                             '-c:a aac', // audio codec
+                             '-hls_playlist_type vod', // vod playlist type
+                             `-hls_segment_filename ${variantOutput}/segment%03d.ts`,
+                        ])
+                        .output(variantPlaylist) // output to the variant playlist
+                        .on('end',()=>{
+                            masterContent.push(
+                                `#EXT-X-STREAM-INF:BANDWIDTH=${resolution.bitRate*1000},RESOLUTION=${resolution.width}x${resolution.height}\n`+
+                                `${resolution.height}p/playlist.m3u8`
+                            )
+                            resolve();
+                        })
+                        .on('error',(error)=>{
+                            console.log("An error occured during processing",error)
+                            reject(error);
+                        })
+                        .run();
+                    });
+                }
+            };
+
+            processSequentially()
+                .then(() => {
+                    if (callbackCalled) return;
                     console.log("processing complete")
                     console.log(masterContent)
                     fs.writeFileSync(masterPlaylist,`#EXTM3U\n${masterContent.join('\n')}`)
-                    callback(null,masterPlaylist) // call the callback function with the master playlist path
-                }
-            })
-            .on('error',(error)=>{
-                console.log("An error occured during processing",error)
-                // when an error occurs
-                callback(error) // call the callback function with the error object
-            })
-            .run()
+                    finish(null,masterPlaylist) // call the callback function with the master playlist path
+                })
+                .catch((error) => {
+                    if (callbackCalled) return;
+                    finish(error as Error);
+                });
         })
 
     }
