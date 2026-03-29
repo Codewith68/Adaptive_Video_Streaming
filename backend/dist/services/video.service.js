@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import 'dotenv/config';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
@@ -8,12 +9,35 @@ const sanitizePath = (value) => {
     const cleaned = value.trim().replace(/^["']|["']$/g, '');
     return cleaned.length ? cleaned : undefined;
 };
+const resolveExistingFile = (candidate) => {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+    }
+    return undefined;
+};
 const resolveFfmpegPath = () => {
     const envPath = sanitizePath(process.env.FFMPEG_PATH);
-    // Must be an actual FILE, not a directory
-    if (envPath && fs.existsSync(envPath) && fs.statSync(envPath).isFile()) {
-        console.log("Using FFMPEG_PATH from .env:", envPath);
-        return envPath;
+    if (envPath && fs.existsSync(envPath)) {
+        const stats = fs.statSync(envPath);
+        if (stats.isFile()) {
+            console.log("Using FFMPEG_PATH from .env:", envPath);
+            return envPath;
+        }
+        if (stats.isDirectory()) {
+            const candidates = [
+                path.join(envPath, 'ffmpeg.exe'),
+                path.join(envPath, 'ffmpeg'),
+                path.join(envPath, 'bin', 'ffmpeg.exe'),
+                path.join(envPath, 'bin', 'ffmpeg'),
+            ];
+            for (const candidate of candidates) {
+                const resolved = resolveExistingFile(candidate);
+                if (resolved) {
+                    console.log("Using FFMPEG_PATH directory from .env:", resolved);
+                    return resolved;
+                }
+            }
+        }
     }
     // Fallback to ffmpeg-static binary
     const staticPath = (typeof ffmpegStatic === 'string' ? ffmpegStatic : ffmpegStatic?.default);

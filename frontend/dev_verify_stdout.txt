@@ -1,0 +1,22 @@
+
+> frontend@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.1.6 (webpack)
+- Local:         http://localhost:3005
+- Network:       http://192.168.1.2:3005
+- Environments: .env.local
+- Experiments (use with caution):
+  · cpus: 1
+  ⨯ webpackBuildWorker
+
+✓ Starting...
+✓ Ready in 2.5s
+○ Compiling / ...
+ GET / 200 in 5.5s (compile: 5.3s, render: 209ms)
+ GET / 200 in 78ms (compile: 13ms, render: 65ms)
+ GET /videoupload 200 in 1855ms (compile: 1696ms, render: 159ms)
+ GET /stream/abc 200 in 2.4s (compile: 2.4s, render: 88ms)
+ GET / 200 in 72ms (compile: 18ms, render: 54ms)
+ GET / 200 in 49ms (compile: 5ms, render: 44ms)
+[?25h

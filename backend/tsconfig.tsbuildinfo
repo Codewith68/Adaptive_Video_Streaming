@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/prisma.config.ts","./src/config/prisma.ts","./src/config/server.config.ts","./src/controllers/video.controller.ts","./src/middlewares/multer.middleware.ts","./src/repository/video.repository.ts","./src/routes/index.ts","./src/routes/v1/index.ts","./src/routes/v1/video.routes.ts","./src/services/video.service.ts"],"errors":true,"version":"5.9.3"}
