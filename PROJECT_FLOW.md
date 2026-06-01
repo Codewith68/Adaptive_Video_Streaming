@@ -13,7 +13,6 @@ Ye project ek video upload aur adaptive streaming system hai jahan:
 Simple words me:
 
 `upload video -> save metadata -> transcode into HLS -> generate playlist -> show in library -> play in browser`
-
 ---
 
 ## 2. Tech stack
@@ -128,7 +127,6 @@ Upload page par user:
 - title fill karta hai
 - description fill karta hai
 - video file choose ya drag-drop karta hai
-
 Frontend `FormData` banata hai aur fields append karta hai:
 
 - `video`
@@ -138,11 +136,9 @@ Frontend `FormData` banata hai aur fields append karta hai:
 Reference: [page.tsx](C:/Users/subra/Documents/Adaptive_Video_Streaming_App/frontend/src/app/upload/page.tsx#L83)
 
 ### Step 2. Frontend backend ko request bhejta hai
-
 Frontend `uploadVideo(formData)` call karta hai.
 
 Ye Axios client ke through request bhejta hai:
-
 - base URL: `NEXT_PUBLIC_API_BASE_URL`
 - final endpoint: `/api/v1/video/upload`
 
