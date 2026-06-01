@@ -26,7 +26,6 @@ Simple words me:
 - HLS.js
 
 ### Backend
-
 - Express
 - TypeScript
 - Multer
@@ -34,7 +33,7 @@ Simple words me:
 - Prisma ORM
 - MongoDB
 
----
+--
 
 ## 3. High-level architecture
 
@@ -51,7 +50,6 @@ Frontend 3 core screens provide karta hai:
 ### B. Backend API
 
 Backend upload, listing aur single video fetch ke APIs deta hai.
-
 ### C. Storage layers
 
 - Raw upload temporary folder: `backend/uploads/`
